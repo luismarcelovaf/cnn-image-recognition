@@ -1,0 +1,268 @@
+# -------------------------------------------------------
+# -------------------- MyCoco ---------------------------
+# - Solution for Coco classification problem		-
+# - using convolutional neural networks applied in	-
+# - theano using keras superlayer			-
+# -------------------------------------------------------
+# ---------	Author : Luis Marcelo Fonseca	---------
+# ---------	Last Edit : 15/11/2015		---------
+# -------------------------------------------------------
+
+# ---------- Imports ---------
+# Keras API
+from keras.preprocessing.image import ImageDataGenerator
+from keras.models import Sequential
+from keras.layers.core import Dense, Dropout, Activation, Flatten
+from keras.layers.convolutional import Convolution2D, MaxPooling2D
+from keras.optimizers import SGD, Adadelta, Adagrad
+from keras.utils import np_utils, generic_utils
+
+# COCO API
+from pycocotools.coco import COCO
+from skimage.transform import resize
+import numpy as np
+import skimage.io as io
+import matplotlib.pyplot as plt
+import pylab
+import math
+# ----------------------------
+
+# ------ Configurations ------
+
+# **** Path settings *****
+dataDir = '..';
+dataType = 'val2014';
+annFile = '%s/annotations/instances_%s.json'%(dataDir,dataType);
+
+# ** Trainning settings **
+
+# Image size in pixels fed to the CNN
+resizeX = 32;
+resizeY = 32;
+
+batch_size = 32;
+nb_classes = 91;
+nb_epoch = 4;
+
+# If set to true, will split the images in dataDir/dataType/ path into
+# train and test according to the split_percent ratio
+train_test_split = True;
+split_percent = 0.7;
+
+# --- Coco Initializations ---
+
+# initialize COCO api for instance annotations
+coco=COCO(annFile);
+
+# Categories to be trained (remove to train in all categories)
+# Will load all images with either of the categories or all of them (union of sets)
+catNms=['bear', 'person'];
+
+# display COCO categories and supercategories
+cats = coco.loadCats(coco.getCatIds());
+nms=[cat['name'] for cat in cats];
+print '\nCOCO categories:\n', ' '.join(nms);
+print 'Number of categories (classes): ', nb_classes;
+
+nms = set([cat['supercategory'] for cat in cats]);
+print '\nCOCO supercategories:\n', ' '.join(nms);
+
+# ----------------------------
+
+# --- Auxiliary Functions ----
+
+# Function that reads dataDir and dataType and returns
+# n-dim vectors with loaded train data
+def load_train_data():
+	
+	# gets all images containing given categories
+	# TODO: Optimize unnecessary iteration O(n)
+	union_length = 0;
+	catIds = coco.getCatIds(catNms);
+	imgIdsLst = []
+	for i in range(len(catIds)):
+		imgIdsLst.append(coco.getImgIds(catIds=catIds[i]));
+		#union_length += len(imgIds[i]);
+
+	# Loads the image objects list
+	imgIds = np.array(imgIdsLst[0]);
+	imgObjList = coco.loadImgs(imgIds);
+	
+	print imgIds.shape
+	print 'sssssssssssssssssssss'
+	print type(imgIds)
+	print imgObjList
+
+	print len(imgObjList),' train samples loaded';
+
+	# Index of ImgObjList where dataset will split into test
+	split_index = math.floor(split_percent * len(imgObjList));
+
+	# X_train is the ndarray of features
+	if (train_test_split == True):
+		X_train = np.ndarray(
+			shape=(math.floor(len(imgObjList) * split_percent), 3, resizeX, resizeY),
+			dtype=np.float32);
+	else:
+		X_train = np.ndarray(shape=(len(imgObjList), 3, resizeX, resizeY), dtype=np.float32);
+
+	# X_test is the ndarray of features for test group
+	X_test = np.ndarray(
+			shape=(math.ceil(len(imgObjList) * (1-split_percent)), 3, resizeX, resizeY),
+			dtype=np.float32);
+
+	# Y_train is the ndarray of classes
+	if (train_test_split == True):
+		Y_train = np.zeros(shape=(math.floor(len(imgObjList) * split_percent), nb_classes));
+	else:
+		Y_train = np.zeros(shape=(len(imgObjList), nb_classes));
+
+	# Y_test is the ndarray of classes for test group
+	Y_test = np.zeros(shape=(math.ceil(len(imgObjList) * (1-split_percent)), nb_classes));
+
+	# RGB Image Default Shape
+	imgDefault = np.ndarray(shape=(resizeX, resizeY, 3));
+
+	print 'initializing image processing...';
+
+	# X_train receives each img RGB pixel matrix
+	count = 0;
+	for i in range(len(imgObjList)):
+
+		# Data taken from imread is already normalized
+		img = io.imread('%s/images/%s/%s'%(dataDir,dataType,imgObjList[i]['file_name']));
+		img = resize(img, (resizeX, resizeY));
+
+		# Ignores images that don't use all three RGB channels
+		# This excludes B&W pictures from the dataset...
+		# TODO: Admit all colors pictures into training
+		if (imgDefault.shape == img.shape):
+			# Resize matrix to fit in model later
+			# TODO: Optimize resizing (maybe pre-process it?)
+			img.resize((3, resizeX, resizeY));
+
+			# In case split is true, this sample may go into test group
+			if (train_test_split == True) and (i >= split_index):
+				print i;
+				X_test[i-split_index] = img.copy();
+			else:
+				X_train[i] = img.copy();
+
+			# Obtains annotation for the given image
+			AnnIds = coco.getAnnIds(imgIds=imgObjList[i]['id'])
+			AnnObjList = coco.loadAnns(ids=AnnIds);
+
+			# Adds 1 for each occurence of a category in the given image
+			# Example: if 'dog' category is ID 0 and 'person' is id 1
+			# and the image has 2 dogs and 0 person
+			# then Y_train[i] == [2, 0]
+			if (train_test_split == True) and (i >= split_index):
+				for j in range(len(AnnObjList)):
+					Y_test[i-split_index][AnnObjList[j]['category_id']] += 1;
+			else:
+				for j in range(len(AnnObjList)):
+					Y_train[i][AnnObjList[j]['category_id']] += 1;
+
+			# Counter of how many images have been successfully processed
+			count += 1;
+
+			if (((i % 500) == 0) and (i != 0)): print 'Images processed: ', i;
+		else:
+			# Replaces non-valid image with black image (sloppy workaround)
+			X_train[i] = np.zeros((3, resizeX, resizeY), dtype=np.float32);
+
+	# i starts at zero, therefore we add one to count the number of iterations we made
+	print count,' train samples processed';
+
+	return X_train, Y_train, X_test, Y_test;
+
+# First CNN solution based on cifar-10
+def build_model_cnn1():
+
+	model = Sequential();
+
+	model.add(Convolution2D(32, 3, 3, border_mode='full',
+	input_shape=(3, resizeX, resizeY)));
+	model.add(Activation('relu'));
+	model.add(Convolution2D(32, 3, 3));
+	model.add(Activation('relu'));
+	model.add(MaxPooling2D(pool_size=(2, 2)));
+	model.add(Dropout(0.25));
+
+	model.add(Convolution2D(64, 3, 3, border_mode='full'));
+	model.add(Activation('relu'));
+	model.add(Convolution2D(64, 3, 3));
+	model.add(Activation('relu'));
+	model.add(MaxPooling2D(pool_size=(2, 2)));
+	model.add(Dropout(0.25));
+
+	model.add(Flatten());
+	model.add(Dense(512));
+	model.add(Activation('relu'));
+	model.add(Dropout(0.5));
+	model.add(Dense(nb_classes));
+	model.add(Activation('softmax'));
+
+	# let's train the model using SGD + momentum (how original).
+	sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+	model.compile(loss='categorical_crossentropy', optimizer=sgd)
+
+	return model;
+
+# Faster CNN solution based on MNIST
+def build_model_cnn2():
+
+	model = Sequential()
+
+	model.add(Convolution2D(32, 3, 3, border_mode='full',
+	input_shape=(3, resizeX, resizeY)));
+	model.add(Activation('relu'))
+	model.add(Convolution2D(32, 3, 3));
+	model.add(Activation('relu'))
+	model.add(MaxPooling2D(pool_size=(2, 2)))
+	model.add(Dropout(0.25))
+
+	model.add(Flatten())
+	model.add(Dense(512));
+	model.add(Activation('relu'))
+	model.add(Dropout(0.5))
+
+	model.add(Dense(nb_classes));
+	model.add(Activation('softmax'))
+
+	model.compile(loss='categorical_crossentropy', optimizer='adadelta')
+	return model
+
+# ----------------------------
+
+if __name__ == "__main__":
+	
+	# ** Data Processing **
+	print '\nLoading data...';
+
+	# Loads input vector X_train into memory
+	X_train, Y_train, X_test, Y_test = load_train_data();
+
+	# Convert class vector to binary class matrix, for use with categorical_crossentropy
+	Y_train = np_utils.to_categorical(Y_train, nb_classes)
+	Y_test = np_utils.to_categorical(Y_test, nb_classes)
+	
+	# ** Model Building **
+	print '\nBuilding model...';
+	
+	# Calls function that builds CNN
+	model = build_model_cnn1();
+
+	#DEBUG
+	#import numpy
+	#numpy.set_printoptions(threshold='nan')  # For printing whole matrix
+	#print Y_train;
+	#print X_train.shape;
+	#print X_train[0];
+	#print type(X_train[0]);
+	#print X_train.shape;
+
+	model.fit(X_train, Y_train, batch_size=batch_size, nb_epoch=nb_epoch, show_accuracy=True);
+	score = model.evaluate(X_test, Y_test, batch_size=batch_size, show_accuracy=True);
+	print('Test score:', score);
+

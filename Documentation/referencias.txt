@@ -1,0 +1,26 @@
+http://www.joyofdata.de/blog/gpu-powered-deeplearning-with-nvidia-digits/
+
+http://www.johnwittenauer.net/configuring-theano-for-high-performance-deep-learning/
+
+Installation Theano:
+
+https://www.continuum.io/downloads
+
+https://www.kaggle.com/c/otto-group-product-classification-challenge/forums/t/13973/a-few-tips-to-install-theano-on-windows-64-bits/93135
+
+http://deeplearning.net/software/theano/introduction.html#introduction
+http://deeplearning.net/software/theano/install_windows.html
+http://deeplearning.net/software/theano/install_windows.html#gpu-windows
+
+https://pypi.python.org/pypi/Theano
+
+
+NVIDIA Digits:
+
+http://www.joyofdata.de/blog/gpu-powered-deeplearning-with-nvidia-digits/
+
+https://developer.nvidia.com/cuda-toolkit-55-archive
+
+Neural Networks:
+
+https://github.com/mjhucla/mRNN-CR

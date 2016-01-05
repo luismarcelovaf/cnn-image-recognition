@@ -1,0 +1,42 @@
+# -----------------------------------------------
+# ----------- Theano / Keras Install ------------
+# -----------------------------------------------
+
+# Step by step installation for Ubuntu:
+
+# Follow the guide step by step in
+# Obs: Use Python version 2.7 and not 3.5 (best compatibility with theano/keras)
+http://www.johnwittenauer.net/configuring-theano-for-high-performance-deep-learning/
+
+# installation of additional required tools
+sudo apt-get install -y gcc g++ gfortran build-essential git wget linux-image-generic libopenblas-dev python-dev python-pip python-nose python-numpy python-scipy
+
+# upgrade theano to dev version
+pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
+
+# Theano execution workaround
+sudo bash init.sh
+
+# Run examples in keras folder using:
+python cifar10_cnn.py
+
+# -----------------------------------------------
+# ------------ MS COCO Dataset ------------------
+# -----------------------------------------------
+
+# Follow Instructions in
+https://github.com/pdollar/coco
+
+# Go inside PythonAPI Folder and run pycocoDemo.ipynb using the command (to visualize demo)
+ipython notebook pycocoDemo.ipynb
+
+# -----------------------------------------------
+# ----------- Running the Project ---------------
+# -----------------------------------------------
+
+# After having installed theano and keras, you should have in your coco folder:
+# Validation images in path: coco/images/val2014/
+# Train images in path: coco/images/train2014/
+# Test images in paths: coco/images/test2014/ and coco/images/test2015/
+# coco.py file in path: coco/PythonAPI/pycocotools/
+# mycoco.py file in path: coco/PythonAPI/
